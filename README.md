@@ -204,4 +204,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Acknowledgments
 - Inspired by Iron Man's JARVIS.
 - Thanks to open-source libraries and communities for enabling this project.
-- Special thanks to contributors and testers.
+- Special thanks to contributors and testers.# jarvis-ai-assistant-main
