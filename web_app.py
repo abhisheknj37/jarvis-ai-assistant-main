@@ -1,5 +1,5 @@
 import streamlit as st
-from llm4free.client import Client
+from llm4free import Client
 
 st.set_page_config(page_title="JARVIS AI", page_icon="🤖", layout="wide")
 
