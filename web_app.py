@@ -1,4 +1,5 @@
 import os
+import time
 import streamlit as st
 from google import genai
 
@@ -75,32 +76,46 @@ if prompt:
                 # capacity pressure, so move to the next supported model.
                 models = (
                     "gemini-3.8-flash",
-                    "gemini-2.5-flash",
-                    "gemini-2.5-flash-lite",
+                    "gemini-3.7-flash",
+                    "gemini-3.6-flash",
+                    "gemini-3.5-flash-lite",
                 )
                 model_errors = []
                 for model_name in models:
-                    try:
-                        response = client.models.generate_content(
-                            model=model_name,
-                            contents=contents,
-                        )
-                        answer = (response.text or "").strip()
-                        if answer:
+                    # Brief retry for transient capacity spikes, then fall back.
+                    for attempt in range(2):
+                        try:
+                            response = client.models.generate_content(
+                                model=model_name,
+                                contents=contents,
+                            )
+                            answer = (response.text or "").strip()
+                            if answer:
+                                break
+                            model_errors.append(f"{model_name}: empty response")
                             break
-                        model_errors.append(f"{model_name}: empty response")
-                    except Exception as model_exc:
-                        error_text = str(model_exc)
-                        model_errors.append(
-                            f"{model_name}: {type(model_exc).__name__} "
-                            f"{error_text[:220]}"
-                        )
-                        if "503" not in error_text and "UNAVAILABLE" not in error_text:
-                            raise
+                        except Exception as model_exc:
+                            error_text = str(model_exc)
+                            is_overload = (
+                                "503" in error_text
+                                or "UNAVAILABLE" in error_text
+                                or "high demand" in error_text.lower()
+                            )
+                            model_errors.append(
+                                f"{model_name}: {type(model_exc).__name__} "
+                                f"{error_text[:180]}"
+                            )
+                            if not is_overload:
+                                raise
+                            if attempt == 0:
+                                time.sleep(1)
+                    if answer:
+                        break
                 else:
                     answer = (
-                        "All available Gemini Flash models are temporarily busy. "
-                        "Please try again in a minute.\n\n"
+                        "Google Gemini is currently overloaded across the available models. "
+                        "JARVIS tried several supported Flash models and retried once. "
+                        "Please try again shortly.\n\n"
                         + "\n".join(model_errors)
                     )
                 if not answer:
