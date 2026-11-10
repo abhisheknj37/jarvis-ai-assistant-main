@@ -1,5 +1,8 @@
 # Jarvis AI Assistant
 
+<escape>🚀 Cloud Chat Demo: https://jarvis-ai-assistant-ngm4.onrender.com</escape>  
+> The hosted version provides a browser-based AI chat interface. Windows desktop controls, microphone, speaker and local automation features remain available in the local Windows app only.
+
 ## Description
 Jarvis AI Assistant is a comprehensive Python-based virtual assistant inspired by Iron Man's JARVIS. It leverages AI, automation, and multimedia capabilities to perform a wide range of tasks, from system control and web automation to intelligent conversations and multimedia interactions. Built with modularity in mind, it integrates various libraries for speech recognition, text-to-speech, image generation, and more, making it a versatile tool for productivity and entertainment.
 
