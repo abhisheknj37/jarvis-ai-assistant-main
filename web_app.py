@@ -67,7 +67,7 @@ if prompt:
                     for item in history
                 )
                 response = client.models.generate_content(
-                    model="gemini-2.5-flash",
+                    model="gemini-3.8-flash",
                     contents=(
                         "You are JARVIS, a helpful, clear and friendly AI assistant. "
                         "Answer the latest user message and use recent conversation for context.\n\n"
