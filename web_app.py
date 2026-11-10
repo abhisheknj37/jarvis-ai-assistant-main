@@ -78,10 +78,19 @@ if prompt:
                 if not answer:
                     answer = "Gemini returned an empty response. Please try again."
             except Exception as exc:
+                # Show Google's actual status/message so authentication, quota,
+                # model and permission failures can be distinguished. Never show the key.
+                detail = str(exc)
+                if api_key:
+                    detail = detail.replace(api_key, "[REDACTED]")
+                detail = detail[:1200]
                 answer = (
                     "JARVIS could not get a reply from Gemini. "
-                    f"Error type: {type(exc).__name__}. "
-                    "Check the GEMINI_API_KEY value and its API access in Google AI Studio."
+                    f"\n\n**{type(exc).__name__}:** {detail}\n\n"
+                    "If this is 400/API_KEY_INVALID, recreate the key. "
+                    "If 403, check API restrictions/project access. "
+                    "If 429, check Gemini API quota and billing. "
+                    "If 404, verify model availability for this project."
                 )
             st.markdown(answer)
     st.session_state.messages.append({"role": "assistant", "content": answer})
