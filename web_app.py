@@ -1,5 +1,6 @@
+import os
 import streamlit as st
-from llm4free import Client
+from google import genai
 
 st.set_page_config(page_title="JARVIS AI", page_icon="🤖", layout="wide")
 
@@ -18,16 +19,12 @@ div[data-testid="stButton"] button { border-radius: 12px; }
 </style>
 """, unsafe_allow_html=True)
 
-@st.cache_resource
-def get_jarvis_client():
-    return Client()
-
 with st.sidebar:
     st.markdown("## 🤖 JARVIS")
-    st.caption("Personal AI chat")
+    st.caption("Personal AI assistant")
     st.markdown("---")
-    st.markdown("**Cloud assistant**")
-    st.caption("Text chat is available here. Microphone, speaker and Windows desktop controls are supported only by the local desktop version.")
+    st.markdown("**Powered by Google Gemini API**")
+    st.caption("The hosted app supports text chat. Microphone, speaker and Windows desktop automation remain in the local desktop app.")
     if st.button("Clear conversation", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
@@ -44,11 +41,17 @@ st.markdown("""
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+if not api_key:
+    st.warning("JARVIS needs a Gemini API key to reply. Add GEMINI_API_KEY in the Render service environment variables, then redeploy.")
+    st.markdown("[Create a Gemini API key in Google AI Studio](https://aistudio.google.com/app/apikey)")
+    st.info("Keep the key private. Add it directly in Render Dashboard → JARVIS service → Environment. Never paste it into GitHub or this chat.")
+
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-prompt = st.chat_input("Message JARVIS...")
+prompt = st.chat_input("Message JARVIS...", disabled=not bool(api_key))
 if prompt:
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
@@ -56,42 +59,29 @@ if prompt:
 
     with st.chat_message("assistant"):
         with st.spinner("JARVIS is thinking..."):
-            answer = ""
             try:
-                client = get_jarvis_client()
+                client = genai.Client(api_key=api_key)
                 history = st.session_state.messages[-12:]
-                messages = [
-                    {"role": "system", "content": "You are JARVIS, a helpful, clear and friendly AI assistant. Reply directly to the latest user message and use the conversation history for context."}
-                ]
-                messages.extend(
-                    {"role": item["role"], "content": item["content"]}
+                conversation = "\n".join(
+                    f'{"User" if item["role"] == "user" else "JARVIS"}: {item["content"]}'
                     for item in history
                 )
-
-                errors = []
-                for model in ("auto", "Gemini/gemini-3.6-flash"):
-                    try:
-                        response = client.chat.completions.create(
-                            model=model,
-                            messages=messages,
-                        )
-                        answer = str(response.choices[0].message.content or "").strip()
-                        if answer:
-                            break
-                        errors.append(f"{model}: empty response")
-                    except Exception as exc:
-                        errors.append(f"{model}: {type(exc).__name__}")
-
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=(
+                        "You are JARVIS, a helpful, clear and friendly AI assistant. "
+                        "Answer the latest user message and use recent conversation for context.\n\n"
+                        + conversation
+                    ),
+                )
+                answer = (response.text or "").strip()
                 if not answer:
-                    answer = (
-                        "I'm unable to reach an AI provider right now. "
-                        "Please try again shortly. Provider checks: " + "; ".join(errors)
-                    )
+                    answer = "Gemini returned an empty response. Please try again."
             except Exception as exc:
                 answer = (
-                    "JARVIS could not start its AI connection. "
-                    f"Please retry in a moment. Error: {type(exc).__name__}"
+                    "JARVIS could not get a reply from Gemini. "
+                    f"Error type: {type(exc).__name__}. "
+                    "Check the GEMINI_API_KEY value and its API access in Google AI Studio."
                 )
-
             st.markdown(answer)
     st.session_state.messages.append({"role": "assistant", "content": answer})
