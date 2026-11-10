@@ -1,0 +1,2 @@
+streamlit>=1.41,<2
+webscout>=8.0
