@@ -1,5 +1,5 @@
 import streamlit as st
-from llm4free import Meta
+from llm4free.client import Client
 
 st.set_page_config(page_title="JARVIS AI", page_icon="🤖", layout="wide")
 
@@ -41,7 +41,7 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "provider" not in st.session_state:
     try:
-        st.session_state.provider = Meta()
+        st.session_state.provider = Client()
         st.session_state.provider_error = ""
     except Exception as exc:
         st.session_state.provider = None
@@ -67,12 +67,14 @@ if prompt:
                     f'{"User" if item["role"] == "user" else "JARVIS"}: {item["content"]}'
                     for item in context
                 )
-                answer = st.session_state.provider.chat(
-                    "You are JARVIS, a helpful, clear and friendly AI assistant. "
-                    "Answer the latest user message using this recent conversation for context:\n\n"
-                    + conversation
+                response = st.session_state.provider.chat.completions.create(
+                    model="auto",
+                    messages=[
+                        {"role": "system", "content": "You are JARVIS, a helpful, clear and friendly AI assistant. Give accurate, practical answers."},
+                        {"role": "user", "content": conversation},
+                    ],
                 )
-                answer = str(answer).strip()
+                answer = str(response.choices[0].message.content or "").strip()
                 if not answer:
                     answer = "I couldn't generate a response. Please try again."
             except Exception as exc:
