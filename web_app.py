@@ -18,17 +18,21 @@ div[data-testid="stButton"] button { border-radius: 12px; }
 </style>
 """, unsafe_allow_html=True)
 
+@st.cache_resource
+def get_jarvis_client():
+    return Client()
+
 with st.sidebar:
     st.markdown("## 🤖 JARVIS")
     st.caption("Personal AI chat")
     st.markdown("---")
-    st.markdown("**Cloud demo**")
-    st.caption("This version provides AI chat in your browser. Windows automation, microphone, speaker and desktop controls remain in the local Windows app.")
+    st.markdown("**Cloud assistant**")
+    st.caption("Text chat is available here. Microphone, speaker and Windows desktop controls are supported only by the local desktop version.")
     if st.button("Clear conversation", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
     st.markdown("---")
-    st.caption("AI responses can be inaccurate. Verify important information.")
+    st.caption("AI responses may be inaccurate. Verify important information.")
 
 st.markdown("""
 <div class="hero">
@@ -39,13 +43,6 @@ st.markdown("""
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
-if "provider" not in st.session_state:
-    try:
-        st.session_state.provider = Client()
-        st.session_state.provider_error = ""
-    except Exception as exc:
-        st.session_state.provider = None
-        st.session_state.provider_error = str(exc)
 
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
@@ -59,28 +56,42 @@ if prompt:
 
     with st.chat_message("assistant"):
         with st.spinner("JARVIS is thinking..."):
+            answer = ""
             try:
-                if st.session_state.provider is None:
-                    st.session_state.provider = Meta()
-                context = st.session_state.messages[-12:]
-                conversation = "\n".join(
-                    f'{"User" if item["role"] == "user" else "JARVIS"}: {item["content"]}'
-                    for item in context
+                client = get_jarvis_client()
+                history = st.session_state.messages[-12:]
+                messages = [
+                    {"role": "system", "content": "You are JARVIS, a helpful, clear and friendly AI assistant. Reply directly to the latest user message and use the conversation history for context."}
+                ]
+                messages.extend(
+                    {"role": item["role"], "content": item["content"]}
+                    for item in history
                 )
-                response = st.session_state.provider.chat.completions.create(
-                    model="auto",
-                    messages=[
-                        {"role": "system", "content": "You are JARVIS, a helpful, clear and friendly AI assistant. Give accurate, practical answers."},
-                        {"role": "user", "content": conversation},
-                    ],
-                )
-                answer = str(response.choices[0].message.content or "").strip()
+
+                errors = []
+                for model in ("auto", "Gemini/gemini-3.6-flash"):
+                    try:
+                        response = client.chat.completions.create(
+                            model=model,
+                            messages=messages,
+                        )
+                        answer = str(response.choices[0].message.content or "").strip()
+                        if answer:
+                            break
+                        errors.append(f"{model}: empty response")
+                    except Exception as exc:
+                        errors.append(f"{model}: {type(exc).__name__}")
+
                 if not answer:
-                    answer = "I couldn't generate a response. Please try again."
+                    answer = (
+                        "I'm unable to reach an AI provider right now. "
+                        "Please try again shortly. Provider checks: " + "; ".join(errors)
+                    )
             except Exception as exc:
                 answer = (
-                    "The AI provider is temporarily unavailable. Please try again in a moment. "
-                    f"Technical detail: {exc}"
+                    "JARVIS could not start its AI connection. "
+                    f"Please retry in a moment. Error: {type(exc).__name__}"
                 )
+
             st.markdown(answer)
     st.session_state.messages.append({"role": "assistant", "content": answer})
