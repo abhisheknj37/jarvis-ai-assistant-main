@@ -66,15 +66,44 @@ if prompt:
                     f'{"User" if item["role"] == "user" else "JARVIS"}: {item["content"]}'
                     for item in history
                 )
-                response = client.models.generate_content(
-                    model="gemini-3.8-flash",
-                    contents=(
-                        "You are JARVIS, a helpful, clear and friendly AI assistant. "
-                        "Answer the latest user message and use recent conversation for context.\n\n"
-                        + conversation
-                    ),
+                contents = (
+                    "You are JARVIS, a helpful, clear and friendly AI assistant. "
+                    "Answer the latest user message and use recent conversation for context.\n\n"
+                    + conversation
                 )
-                answer = (response.text or "").strip()
+                # Try stable Flash models in order. A 503 is temporary model
+                # capacity pressure, so move to the next supported model.
+                models = (
+                    "gemini-3.8-flash",
+                    "gemini-3.7-flash",
+                    "gemini-3.6-flash",
+                    "gemini-3.5-flash-lite",
+                )
+                model_errors = []
+                for model_name in models:
+                    try:
+                        response = client.models.generate_content(
+                            model=model_name,
+                            contents=contents,
+                        )
+                        answer = (response.text or "").strip()
+                        if answer:
+                            break
+                        model_errors.append(f"{model_name}: empty response")
+                    except Exception as model_exc:
+                        error_text = str(model_exc)
+                        model_errors.append(
+                            f"{model_name}: {type(model_exc).__name__} "
+                            f"{error_text[:220]}"
+                        )
+                        if "503" not in error_text and "UNAVAILABLE" not in error_text:
+                            raise
+                else:
+                    answer = (
+                        "All available Gemini Flash models are temporarily busy. "
+                        "Please try again in a minute.\n\n"
+                        + "\n".join(model_errors)
+                    )
                 if not answer:
                     answer = "Gemini returned an empty response. Please try again."
             except Exception as exc:
